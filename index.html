@@ -2887,6 +2887,8 @@ P("gen","Something you can lose",
   add("Something you'd find at the seaside",1,"Rocks|Stones|Water|Waves|Tide|Sun|Wind|Seagulls|Gulls|People|Families|Dogs|Towels|Suncream|Umbrellas|Parasols|Sunbathers|Swimmers|Surfboards|Boats|Fishing boats|Ice cream van|Kiosk|Café|Toilets|Car park|Benches|Litter|Bins|Footprints|Sandcastles|Moats|Kites|Buckets|Spades|Crabs|Shells|Fish|Jellyfish|Starfish|Seals");
 })();
 
+/* user-reported misses, 24 Oct */
+(()=>{const b=BANK.find(x=>x.q==="Something that floats");if(b)b.t[1]+="|Poo/Poop/Turd/Floater/Faeces/Feces/Number two";})();
 /* user-reported misses, 16 Oct */
 (()=>{const add=(q,tier,str)=>{const b=BANK.find(x=>x.q===q);if(b)b.t[tier]=(b.t[tier]?b.t[tier]+"|":"")+str;};
   add("Something you'd find in a hospital",1,"Insulin|Paracetamol|Ibuprofen|Antibiotics|Painkillers|Morphine|Penicillin|Aspirin|Inhaler");
