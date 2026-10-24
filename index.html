@@ -5,6 +5,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#05060a">
 <title>Apogee</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;500;700;800&display=swap">
@@ -3040,7 +3041,7 @@ const TOO_CLEVER_LINES=["Everyone's secret weapon. Half the crew had the same id
     "A country in Africa":["Djibouti","Burkina Faso"],"A country in Asia":["Bhutan"],
     "A capital city in Europe":["Vaduz","Reykjavík/Reykjavik"],"A US state":["Wyoming"],
     "A fruit":["Durian","Dragon fruit"],"A musical instrument":["Theremin","Kazoo","Didgeridoo"]};
-  for(const q in TC)move(q,TC[q],4);
+  /* "Too clever" retired: those answers stay in their original tiers */
   /* new Black Holes where the old ones were really "too clever": picked for fun as well as rarity */
   const BH={"A country in Europe":["Moldova"],"A country in Oceania":["Palau"],"An island country":["Palau"]};
   for(const q in BH)move(q,BH[q],3);
@@ -3052,7 +3053,7 @@ const DROP=new Set(["A Cluedo suspect, weapon or room", "A Harry Potter spell", 
 for(let i=BANK.length-1;i>=0;i--)if(DROP.has(BANK[i].q))BANK.splice(i,1);
 function buildIndex(b){const m=new Map();b.t.forEach((str,ti)=>String(str||"").split("|").forEach(entry=>{
   const names=entry.split("/");const display=names[0];
-  names.forEach(n=>{const k=norm(n);if(k&&!m.has(k))m.set(k,ti===4?{tier:1,display,tc:true}:{tier:ti,display});});
+  names.forEach(n=>{const k=norm(n);if(k&&!m.has(k))m.set(k,{tier:ti===4?2:ti,display});});
 }));return m;}
 const INDEX=BANK.map(buildIndex);
 /* Results: a few Deep Space picks and every Black Hole for a prompt */
@@ -3463,7 +3464,9 @@ function pname(p){return p.callsign||NAMES[p.uid]||("Pilot "+p.code);}
 const utcKey=()=>new Date().toISOString().slice(0,10);
 const DAILY={state:"pending",idx:[],key:null};
 async function fetchSet(db,key){
-  const snap=await db.doc("daily/"+key).get();const d=snap.exists?snap.data():null;
+  let d=null;
+  if(db){const snap=await db.doc("daily/"+key).get();d=snap.exists?snap.data():null;}
+  else{const r=await fetch("daily/"+key+".json",{cache:"no-store"});if(r.ok)d=await r.json();}
   if(!(d&&Array.isArray(d.prompts)&&d.prompts.length>=ROUNDS))return null;
   return d.prompts.slice(0,ROUNDS).map(p=>{const b={q:String(p.q),th:p.th||"gen",t:[0,1,2,3,4].map(i=>String((p.t||[])[i]||"")),daily:true,key};if(/ice cream flavour/i.test(b.q))boostFlavour(b);
     BANK.push(b);INDEX.push(buildIndex(b));return BANK.length-1;});
@@ -3476,13 +3479,130 @@ async function loadDaily(db){
 const PREVIEW={idx:null};
 async function previewTomorrow(){
   const msg=document.getElementById("plusMsg")||{};
-  if(!NET.db){msg.textContent="Sign in to Claude to preview.";return;}
+  if(!NET.db&&!isSupa()){msg.textContent="Sign in to Claude to preview.";return;}
   const key=new Date(Date.now()+864e5).toISOString().slice(0,10);
-  try{if(!PREVIEW.idx||PREVIEW.key!==key){PREVIEW.idx=await fetchSet(NET.db,key);PREVIEW.key=key;}}catch(e){PREVIEW.idx=null;}
+  try{if(!PREVIEW.idx||PREVIEW.key!==key){PREVIEW.idx=await fetchSet(NET.db||null,key);PREVIEW.key=key;}}catch(e){PREVIEW.idx=null;}
   if(!PREVIEW.idx){const n=document.getElementById("pvMsg");if(n)n.textContent="Tomorrow's signals haven't arrived yet.";return;}
   start("preview");
 }
+/* ---------- Supabase backend: used when Apogee runs on its own website (not inside Claude) ---------- */
+const SUPA_URL="https://ajalrrzbdsidpjahdmts.supabase.co",SUPA_KEY="sb_publishable_hWHfV_Q43QFowGiJojIs-A_A9TqQ00U";
+const SUPA={client:null,session:null,timer:0};
+const isSupa=()=>!!SUPA.client;
+const signHint=()=>isSupa()?"Sign in on the home screen":"Sign in to Claude";
+function supaInit(){
+  if(window.claude&&window.claude.use)return false;
+  if(!window.supabase||!window.supabase.createClient)return false;
+  try{SUPA.client=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});}catch(e){return false;}
+  return true;
+}
+async function initNetSupa(){
+  loadDaily(null);
+  SUPA.client.auth.onAuthStateChange((ev,s)=>{
+    if(s&&!NET.ready&&(ev==="SIGNED_IN"||ev==="INITIAL_SESSION")){SUPA.session=s;supaSignedIn().then(()=>{if(CUR==="intro"&&!S)intro();});}
+    if(ev==="SIGNED_OUT"){location.reload();}
+  });
+  try{const {data}=await SUPA.client.auth.getSession();if(data&&data.session&&!NET.ready){SUPA.session=data.session;await supaSignedIn();}}catch(e){}
+}
+let supaStarting=null;
+function supaSignedIn(){
+  if(supaStarting)return supaStarting;
+  supaStarting=(async()=>{
+    NET.uid=SUPA.session.user.id;NET.ready=true;NET.canWrite=true;
+    await supaRefresh();
+    /* a mission flown before signing in today still counts */
+    const local=store.get("apogee-"+dayNum());
+    if(local&&typeof local.total==="number"&&!(NET.me&&NET.me.days&&NET.me.days[dayNum()]))await saveDailySupa(local);
+    supaSubs();
+    clearInterval(SUPA.timer);SUPA.timer=setInterval(()=>{supaRefresh();},60000);
+  })();
+  return supaStarting;
+}
+async function supaRefresh(){
+  try{
+    const c=SUPA.client,uid=NET.uid;
+    const {data:me}=await c.from("profiles").select("id,code,callsign,is_owner").eq("id",uid).maybeSingle();
+    if(!me)return;
+    NET.owner=!!me.is_owner;
+    const {data:fr}=await c.from("friendships").select("user_id,friend_id").or(`user_id.eq.${uid},friend_id.eq.${uid}`);
+    const ids=[...new Set([uid,...(fr||[]).map(r=>r.user_id===uid?r.friend_id:r.user_id)])].slice(0,60);
+    const {data:profs}=await c.from("profiles").select("id,code,callsign").in("id",ids);
+    const since=new Date(Date.now()-60*864e5).toISOString().slice(0,10);
+    const {data:sc}=await c.from("scores").select("user_id,mission,total,results").in("user_id",ids).gte("date",since);
+    const byId={};
+    (profs||[]).forEach(p=>{byId[p.id]={uid:p.id,code:p.code,callsign:p.callsign||"",friends:[],days:{}};});
+    (sc||[]).forEach(s=>{const p=byId[s.user_id];if(p)p.days[s.mission]={p:s.total,g:(Array.isArray(s.results)?s.results:[]).map(r=>r.t).join(",")};});
+    if(byId[uid])byId[uid].friends=ids.filter(i=>i!==uid);
+    NET.players=Object.values(byId);NET.me=byId[uid]||null;
+    refreshSocial();
+  }catch(e){}
+}
+async function writeMeSupa(patch){
+  const c=SUPA.client;
+  try{
+    if("callsign" in patch){const {error}=await c.from("profiles").update({callsign:patch.callsign}).eq("id",NET.uid);if(error)throw error;}
+    if(patch.friends){const keep=new Set(patch.friends);
+      for(const f of (NET.me&&NET.me.friends)||[])if(!keep.has(f)){
+        await c.from("friendships").delete().eq("user_id",NET.uid).eq("friend_id",f);
+        await c.from("friendships").delete().eq("user_id",f).eq("friend_id",NET.uid);}}
+    await supaRefresh();return true;
+  }catch(e){return false;}
+}
+async function saveDailySupa(st){
+  try{
+    const results=(st.results||[]).map(r=>({q:r.q,a:r.answer,t:r.tier,p:r.pts,tc:!!r.tc}));
+    const {error}=await SUPA.client.from("scores").insert({user_id:NET.uid,date:utcKey(),mission:st.day,total:st.total,results});
+    await supaRefresh();return !error;
+  }catch(e){return false;}
+}
+async function supaSubs(){
+  try{
+    const {data}=await SUPA.client.from("submissions").select("id,user_id,prompt,note,status,created_at").order("created_at");
+    const rows=data||[],toItem=r=>({id:String(r.id),q:r.prompt,answers:r.note||"",at:Date.parse(r.created_at)});
+    const decOf=st=>st==="accepted"?"approved":st;
+    const mine=rows.filter(r=>r.user_id===NET.uid);
+    NET.mySubs=mine.map(toItem);NET.myDec={};mine.forEach(r=>{if(r.status!=="pending")NET.myDec[String(r.id)]=decOf(r.status);});
+    if(NET.owner){const by={};NET.allDec={};
+      rows.forEach(r=>{(by[r.user_id]=by[r.user_id]||[]).push(toItem(r));if(r.status!=="pending")(NET.allDec[r.user_id]=NET.allDec[r.user_id]||{})[String(r.id)]=decOf(r.status);});
+      NET.allSubs=Object.keys(by).map(uid=>({uid,items:by[uid]}));}
+    refreshSubs();
+  }catch(e){}
+}
+/* where this flight ranks among everyone who has flown today's mission */
+async function flightRank(total){
+  if(!isSupa()||!NET.ready)return null;
+  try{
+    const c=SUPA.client,d=utcKey();
+    const [a,b]=await Promise.all([c.from("scores").select("user_id",{count:"exact",head:true}).eq("date",d),
+                                   c.from("scores").select("user_id",{count:"exact",head:true}).eq("date",d).gt("total",total)]);
+    if(!a.count)return null;return {n:a.count,ahead:b.count||0};
+  }catch(e){return null;}
+}
+const rankPct=r=>Math.max(1,Math.ceil((r.ahead+1)/r.n*100));
+function rankShort(r){if(!r||r.n<20)return "";const p=rankPct(r);return p<=50?`Top ${p}%`:"";}
+function rankLong(r){if(!r)return "";
+  if(r.n<20)return `One of the first ${r.n} pilot${r.n===1?"":"s"} to fly today's mission`;
+  const p=rankPct(r);return p<=50?`Top ${p}% of today's flights so far`:`Higher than ${Math.max(1,Math.floor((r.n-r.ahead-1)/r.n*100))}% of today's pilots so far`;}
+function signInBox(){
+  if(!isSupa()||NET.ready)return "";
+  return `<div class="fb" style="gap:10px"><p class="label">Join the crew</p>
+  <p style="font-size:15px">Sign in to save your flights, add friends and climb the leaderboards. No password: we'll email you a link.</p>
+  <form id="signF" autocomplete="on"><input id="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" aria-label="Email address" required><button class="go" type="submit" style="font-size:17px;padding:0 16px">Send link</button></form>
+  <div id="signMsg" class="ok"></div></div>`;
+}
+function wireSignIn(){
+  const f=document.getElementById("signF");if(!f)return;
+  f.onsubmit=async e=>{e.preventDefault();const m=document.getElementById("signMsg"),email=document.getElementById("email").value.trim();
+    if(!/^\S+@\S+\.\S+$/.test(email)){m.className="err";m.textContent="That doesn't look like an email address.";return;}
+    m.className="ok";m.textContent="Sending…";
+    const {error}=await SUPA.client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+    if(error){m.className="err";m.textContent=/rate|seconds/i.test(error.message)?"Too many sign-in emails just now. Wait a minute and try again.":"Couldn't send the link. Check the address and try again.";return;}
+    m.textContent="Check your inbox for a sign-in link from Apogee, then open it on this device.";};
+  const so=document.getElementById("signOut");if(so)so.onclick=()=>SUPA.client.auth.signOut();
+}
+
 async function initNet(){
+  if(supaInit()){try{await initNetSupa();}catch(e){}return;}
   try{
     if(!window.claude||!window.claude.use){DAILY.state="none";return;}
     const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]);
@@ -3520,11 +3640,13 @@ function syncFriends(){
   },()=>{});
 }
 async function writeMe(patch){
+  if(isSupa())return NET.ready?writeMeSupa(patch):false;
   if(!NET.ready||!NET.canWrite)return false;
   try{await NET.db.doc("players/"+NET.uid).update(Object.assign({updated:Date.now()},patch));return true;}
   catch(e){if(e&&e.code==="invalid_argument")NET.canWrite=false;return false;}
 }
 async function saveDaily(st){
+  if(isSupa())return NET.ready?saveDailySupa(st):false;
   const entry={p:st.total,g:st.results.map(r=>r.tier).join(",")};
   const days=Object.assign({},(NET.me&&NET.me.days)||{});
   const keys=Object.keys(days).map(Number);
@@ -3534,7 +3656,7 @@ async function saveDaily(st){
 const glyphs=g=>String(g||"").split(",").filter(x=>x!=="").map(t=>+t>=0?TIERS[+t].glyph:"·").join("");
 
 function boardHTML(tab,limit){
-  if(!NET.ready)return `<p class="muted" style="font-size:14px">Leaderboards appear when you open Apogee signed in to Claude. Your scores still save on this device.</p>`;
+  if(!NET.ready)return `<p class="muted" style="font-size:14px">${isSupa()?"Sign in on the home screen to see leaderboards.":"Leaderboards appear when you open Apogee signed in to Claude."} Your scores still save on this device.</p>`;
   const today=dayNum();let rows;
   if(tab==="today"){
     rows=NET.players.map(p=>{const d=p.days&&p.days[today];return{p,score:d?d.p:-1,sub:d?glyphs(d.g):"Not launched yet"};});
@@ -3593,7 +3715,7 @@ function leaderboards(tab){
 }
 
 function friendsHTML(){
-  if(!NET.ready)return `<p class="muted" style="font-size:14px">Friends work when you open Apogee signed in to Claude.</p>`;
+  if(!NET.ready)return `<p class="muted" style="font-size:14px">${isSupa()?"Sign in on the home screen to add friends.":"Friends work when you open Apogee signed in to Claude."}</p>`;
   const others=NET.players.filter(p=>p.uid!==NET.uid);
   const ids=(NET.me&&NET.me.friends)||[];
   if(!ids.length)return `<p class="muted" style="font-size:14px">No friends added yet.</p>`;
@@ -3605,7 +3727,7 @@ function friends(){
   CUR="friends";S=null;cancelAnimationFrame(timerRaf);
   panel.innerHTML=`${header("Friends")}
   <div><p class="label">Your pilot code</p><div class="row2" style="align-items:center;margin-top:6px"><span class="code" id="myCode">${NET.me?esc(NET.me.code):"······"}</span><button id="copyCode" style="flex:0 0 auto">Copy code</button></div>
-  <p class="muted" style="font-size:14px;margin-top:6px">Send this to friends. Adding works one way, so ask them to add yours too.</p></div>
+  <p class="muted" style="font-size:14px;margin-top:6px">${isSupa()?"Send this to friends. When either of you adds the other, you both appear in each other's crew.":"Send this to friends. Adding works one way, so ask them to add yours too."}</p></div>
   <form id="addF" autocomplete="off"><input id="fcode" aria-label="Friend's pilot code" placeholder="Friend's code" maxlength="6" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase;font-family:var(--mono);letter-spacing:.15em"><button class="go" type="submit" style="font-size:18px;padding:0 16px">Add</button></form>
   <div id="fmsg" class="ok"></div>
   <div><p class="label" style="margin-bottom:6px">Your crew</p><div id="friendList">${friendsHTML()}</div></div>
@@ -3618,9 +3740,12 @@ function friends(){
     try{navigator.clipboard.writeText(c).then(()=>{b.textContent="Copied";},()=>{msg("Copy didn't work here. Your code is "+c+".");});}catch(err){msg("Your code is "+c+".");}};
   document.getElementById("addF").onsubmit=async e=>{e.preventDefault();
     const code=document.getElementById("fcode").value.trim().toUpperCase();
-    if(!NET.ready){msg("Sign in to Claude to add friends.",true);return;}
+    if(!NET.ready){msg(signHint()+" to add friends.",true);return;}
     if(!/^[A-Z0-9]{6}$/.test(code)){msg("Codes are 6 letters and numbers.",true);return;}
     if(NET.me&&code===NET.me.code){msg("That's your own code.",true);return;}
+    if(isSupa()){const {error}=await SUPA.client.rpc("add_friend",{friend_code:code});
+      if(error){msg(/No pilot/.test(error.message)?"No pilot has code "+code+" yet. They need to sign in once first.":/own code/.test(error.message)?"That's your own code.":"Couldn't add them. Try again in a moment.",true);return;}
+      await supaRefresh();msg("Added to your crew.");document.getElementById("fcode").value="";return;}
     try{const qs=await NET.db.collection("players").where("code","==",code).limit(1).get();
       if(qs.empty){msg("No pilot has code "+code+" yet. They need to open Apogee once first.",true);return;}
       const fid=qs.docs[0].data().uid;const list=(NET.me.friends||[]).slice();
@@ -3643,7 +3768,6 @@ const FAQ=()=>[
 ["How are the answer lists made?","Each prompt's list is built by pulling together real sources (encyclopedia lists, dictionaries, reference pages, whatever the prompt calls for), then merging and cleaning them into one answer set. Then it's checked by hand: would 20 ordinary people answering in 20 seconds all find their answer on it?"],
 ["How is rarity decided?","It depends on the prompt. Names and words can be scored by how often they actually turn up in what people read and write. The less familiar the word, the further out it sits. Some prompts can't be boiled down to a number like that (\"something you'd find in a garden\"), so those get a mix of AI help and a manual pass."],
 ["Why is the Black Hole sometimes less rare than a Deep Space answer?","Because the Black Hole isn't picked on rarity alone. Past a certain depth, rarity is hard to call, so the Black Hole is also chosen for how satisfying it is to land on. Some answers are so obscure that maybe one pilot ever would type them. A Black Hole should be one that at least a few of you actually find."],
-["What is “Too clever”?","The go-to “obscure” answer that isn't actually obscure: Liechtenstein for a European country, Wyoming for a US state. So many pilots reach for it that it only scores Low Orbit."],
 ["Why wasn't my answer accepted?","Because it wasn't found when the list was built, sorry. Usually that means a source was missed. Fair answers that turn up missing get added, and the aim is for that to happen as rarely as possible."],
 ["Why does it say “Did you mean…?”","Many answers have several names, and the game checks all of them. A typo that's a letter or two away from one of them gets offered to you. Press Enter to accept it, or keep typing. Singular and plural count as the same answer."],
 ["Can I suggest a prompt?",`Yes. Submitting a prompt costs ${PRICE}. If it's declined, you're refunded.`],
@@ -3659,7 +3783,7 @@ function faq(){CUR="faq";S=null;cancelAnimationFrame(timerRaf);
 const PRICE="£4.99";
 const STATUS={pending:["In review","var(--muted)"],approved:["Approved for a future mission","var(--t2)"],declined:["Declined · refunded","var(--bad)"]};
 function mySubsHTML(){
-  if(!NET.ready)return `<p class="muted" style="font-size:14px">Open Apogee signed in to Claude to submit prompts.</p>`;
+  if(!NET.ready)return `<p class="muted" style="font-size:14px">${isSupa()?"Sign in on the home screen to submit prompts.":"Open Apogee signed in to Claude to submit prompts."}</p>`;
   if(!NET.mySubs.length)return `<p class="muted" style="font-size:14px">You haven't submitted a prompt yet.</p>`;
   const dec=NET.owner?(NET.allDec[NET.uid]||{}):NET.myDec;
   return `<div class="lb">${NET.mySubs.slice().reverse().map(it=>{const st=STATUS[dec[it.id]||"pending"];
@@ -3700,19 +3824,24 @@ function submit(){
   shownPts=0;setAltitude(0);
   const msg=(t,bad)=>{const m=document.getElementById("smsg");m.className=bad?"err":"ok";m.textContent=t;};
   document.getElementById("subF").onsubmit=async e=>{e.preventDefault();
-    if(!NET.ready){msg("Sign in to Claude to submit.",true);return;}
+    if(!NET.ready){msg(signHint()+" to submit.",true);return;}
     const q=document.getElementById("sq").value.trim(),a=document.getElementById("sa").value.trim();
     if(q.length<4){msg("Write a prompt of at least a few words.",true);return;}
     if(a.split(/[,\n]/).filter(x=>x.trim()).length<8){msg("List at least 8 answers so there's a real range from obvious to rare.",true);return;}
     const items=NET.mySubs.slice();
     const dec=NET.owner?(NET.allDec[NET.uid]||{}):NET.myDec;
     if(items.filter(it=>!dec[it.id]).length>=5){msg("You have 5 prompts in review. Wait for a decision before adding more.",true);return;}
+    if(isSupa()){const {error}=await SUPA.client.from("submissions").insert({user_id:NET.uid,prompt:q.slice(0,120),note:a.slice(0,2000)});
+      if(error){msg("Couldn't submit. Prompts need 5 to 120 characters.",true);return;}
+      msg("Submitted. You'll see the decision here.");document.getElementById("sq").value="";document.getElementById("sa").value="";supaSubs();return;}
     items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),q,answers:a,at:Date.now()});
     try{await NET.db.doc("submissions/"+NET.uid).set({items:items.slice(-20)});msg("Submitted. You'll see the decision here.");document.getElementById("sq").value="";document.getElementById("sa").value="";}
     catch(err){msg("Couldn't submit. You may only have view access.",true);}
   };
   const qd=document.getElementById("queue");
   if(qd)qd.onclick=async e=>{const b=e.target.closest("button[data-dec]");if(!b)return;b.disabled=true;
+    if(isSupa()){const {error}=await SUPA.client.from("submissions").update({status:b.dataset.dec==="approved"?"accepted":"declined",decided_at:new Date().toISOString()}).eq("id",+b.dataset.id);
+      if(error)b.disabled=false;else supaSubs();return;}
     const uid=b.dataset.uid,cur=Object.assign({},NET.allDec[uid]||{});cur[b.dataset.id]=b.dataset.dec;
     try{await NET.db.doc("decisions/"+uid).set({items:cur});}catch(err){b.disabled=false;}};
   document.getElementById("home").onclick=intro;
@@ -3756,6 +3885,7 @@ const ARRIVE={
   "Alt Universe":"Through the rift into another universe. The stars are the wrong colours and gravity has opinions.",
   Spaghettiverse:"The Spaghettiverse. Stretched into noodles, tangled through every dimension at once. Nobody has ever flown further."
 };
+const SHARE_EMOJI=["🌍","🛰️","🪐","🕳️"]; /* Launchpad, Low Orbit, Deep Space, Black Hole; a miss is 💥 */
 const SHARE_DEST={Pad:"Launchpad 🚀",Trees:"Treetops 🌲",Sky:"Sky ☁️",Ozone:"Ozone 🌈",Moon:"Moon 🌕",Mars:"Mars 🔴",Pluto:"Pluto 🤍",Galaxy:"Andromeda 🌌","Black Hole":"Black Hole 🕳️","Alt Universe":"Alternate Universe 🌀",Spaghettiverse:"The Spaghettiverse 🍝"};
 const SHORTNAME={Trees:"the treetops",Sky:"open sky",Ozone:"the ozone layer",Moon:"the Moon",Mars:"Mars",Pluto:"Pluto",Galaxy:"Andromeda","Black Hole":"the black hole","Alt Universe":"the alternate universe",Spaghettiverse:"the Spaghettiverse"};
 function nearLine(gap,name){
@@ -3784,6 +3914,7 @@ function intro(){
   <p class="lede">Pilot, you're cleared for one launch today. Seven signals are coming in over comms, with ${SECONDS} seconds to answer each. Every correct answer fires the engines. Rare answers burn hardest.</p></div>
   <div class="btns home">${done?`<button class="go big" id="seeBtn">🚀 Lift off</button>`:`<button class="go big" id="dailyBtn">🚀 Launch mission #${dayNum()}</button>`}
   <div class="duo"><button class="sec" id="lbBtn">Leaderboards</button><button class="sec" id="frBtn">Friends</button></div>
+  ${signInBox()}
   ${NET.owner?`<div class="duo"><button class="sec" id="practiceBtn">Practice flight</button><button class="sec" id="newBtn">Test new prompts</button></div><button class="sec" id="pvBtn">Preview tomorrow's mission</button><span class="note" id="pvMsg"></span><span class="note">Owner test mode. Doesn't count on leaderboards.</span>`:""}</div>
   ${logbookHTML()}
   <div><p class="label" style="margin-bottom:6px">Rarity scoring</p><div class="tiers">${TIERS.map(t=>`<div class="tier"><span class="dot" style="background:${t.col}"></span><span><b>${t.name}</b><em>${t.hint}</em></span><b class="pts">${t.pts} pts</b></div>`).join("")}</div></div>
@@ -3795,10 +3926,12 @@ function intro(){
     <div id="plusMsg" class="ok"></div>
   </div>
   <button class="link" id="subBtn">Submit your own prompt · ${PRICE}</button>
-  <button class="link" id="faqBtn">How Apogee works</button>`;
+  <button class="link" id="faqBtn">How Apogee works</button>
+  ${isSupa()&&NET.ready?`<button class="link" id="signOut">Sign out${NET.me&&NET.me.callsign?" ("+esc(NET.me.callsign)+")":""}</button>`:""}`;
   shownPts=0;setAltitude(0);
   document.getElementById("subBtn").onclick=submit;
   document.getElementById("faqBtn").onclick=faq;
+  wireSignIn();
   const d=document.getElementById("dailyBtn");if(d)d.onclick=()=>start("daily");
   const s=document.getElementById("seeBtn");if(s)s.onclick=()=>{if(local){S=local;results();}else leaderboards("today");};
   document.getElementById("lbBtn").onclick=()=>leaderboards();
@@ -3890,6 +4023,7 @@ function round(){
     if(sg){pending={typed:v,m:sg};
       msg.innerHTML=`<span style="color:var(--ink)">Did you mean <b>${esc(sg.display)}</b>?</span> <button type="button" id="acc" style="padding:2px 4px;margin-left:6px">Accept ↵</button>`;
       document.getElementById("acc").onclick=()=>lockIn(sg);return;}
+    if(isSupa()&&NET.ready){try{SUPA.client.from("rejected_answers").insert({user_id:NET.uid,prompt:BANK[pi].q,answer:v.slice(0,80)}).then(()=>{},()=>{});}catch(e){}}
     msg.textContent=`“${v}” isn't on the flight list. Try another.`;inp.classList.remove("shake");void inp.offsetWidth;inp.classList.add("shake");inp.select();
   };
 }
@@ -3915,21 +4049,21 @@ function feedback(pi,res){
   else launch(prev,S.total,res.tier);
   const n=document.getElementById("next");n.focus();
   n.onclick=()=>{S.i++;
-    if(last){if(S.mode==="daily"){store.set("apogee-"+S.day,S);saveDaily(S);}
+    if(last){if(S.mode==="daily"){store.set("apogee-"+S.day,S);S._save=saveDaily(S);}
       else if(S.mode.startsWith("theme:"))store.set(themeKey(S.mode.slice(6)),S);
       results();}
     else round();};
 }
 
 function shareText(){const a=passed(S.total),L=S.mode==="daily"?logbook():null;
-  return `Apogee · ${modeLabel()} · ${S.total}\n${S.results.map(r=>r.tier>=0?TIERS[r.tier].glyph:"·").join("")}\n${fmtKm(altitude(S.total))} · ${SHARE_DEST[a.label]||a.label}${L&&L.streak>1?"\n🔥 "+L.streak+"-day streak":""}`;}
+  return `Apogee · ${modeLabel()} · ${S.total}\n${S.results.map(r=>r.tier>=0?SHARE_EMOJI[r.tier]:"💥").join("")}\n${fmtKm(altitude(S.total))} · ${SHARE_DEST[a.label]||a.label}${rankShort(S.rank)?" · "+rankShort(S.rank):""}${L&&L.streak>1?"\n🔥 "+L.streak+"-day streak":""}`;}
 
 function results(){
   CUR="results";cancelAnimationFrame(timerRaf);
   const a=passed(S.total);const nextIdx=ANCH.findIndex(x=>x.p>S.total);const nxt=nextIdx>=0?ANCH[nextIdx]:null;
   const reset=new Date((Math.floor(Date.now()/864e5)+1)*864e5).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
   panel.innerHTML=`${header(modeLabel()+" · complete")}
-  <div><div class="big">${S.total}</div><p class="label" style="margin-top:6px">points of ${MAXPTS} · ${fmtKm(altitude(S.total))}</p></div>
+  <div><div class="big">${S.total}</div><p class="label" style="margin-top:6px">points of ${MAXPTS} · ${fmtKm(altitude(S.total))}</p>${S.mode==="daily"&&isSupa()&&NET.ready?`<p id="rank" style="margin-top:8px;color:var(--flame);font-family:var(--mono);font-weight:700;font-size:15px">${S.rank?esc(rankLong(S.rank)):"Checking today's flights…"}</p>`:""}</div>
   ${S.mode==="daily"?logbookHTML():""}
   <p class="lede">${ARRIVE[a.label]}</p>
   ${nxt?`<p class="muted">${nearLine(nxt.p-S.total,SHORTNAME[nxt.label])}</p>`:""}
@@ -3940,6 +4074,7 @@ function results(){
   <div class="duo"><button class="sec" id="lbBtn">Leaderboards</button><button class="sec" id="frBtn">Friends</button></div>
   ${NET.owner?`<button class="sec" id="again">${S.mode==="new"?"Test more new prompts":"Practice flight"}</button>`:""}<button class="link" id="home">Back to mission control</button></div>
   ${S.mode!=="practice"&&S.mode!=="new"&&S.mode!=="preview"?`<p class="note">The next mission launches at ${reset} your time.</p>`:""}`;
+  if(S.mode==="daily"&&isSupa()&&NET.ready){const st=S;Promise.resolve(st._save).then(()=>flightRank(st.total)).then(r=>{if(!r)return;st.rank=r;const el=document.getElementById("rank");if(el&&S===st)el.textContent=rankLong(r);});}
   setAltitude(S.total);
   document.getElementById("copy").onclick=e=>{const txt=shareText();const b=e.currentTarget;
     const fallback=()=>{const o=document.getElementById("copyOut");o.hidden=false;const ta=document.getElementById("ct");ta.value=txt;ta.focus();ta.select();b.textContent="Select and copy below";};
