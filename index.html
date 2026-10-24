@@ -223,6 +223,7 @@ button:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
 .faq details[open] summary::before{transform:rotate(90deg)}
 .faq details p{margin-top:8px;color:var(--muted);font-size:14px}
 .mark span.two{font-size:8px;line-height:1.15;letter-spacing:0}
+.homelink{color:inherit;text-decoration:none;cursor:pointer}.homelink:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
 @media (max-width:380px){.app{grid-template-columns:62px minmax(0,1fr)}.mark span{font-size:8.5px}.panel{padding:16px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -3450,6 +3451,9 @@ function flyLoop(){
 
 /* ---------- Screens ---------- */
 const panel=document.getElementById("panel");
+panel.addEventListener("click",e=>{const a=e.target.closest(".homelink");if(!a)return;e.preventDefault();
+  if(CUR==="play"){const m=document.getElementById("msg");if(m){m.style.color="var(--ink)";m.textContent="Finish this launch first. Leaving now would lose your flight.";}return;}
+  intro();});
 let S=null,timerRaf=0;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -3708,7 +3712,7 @@ function leaderboards(tab){
   <div class="tabs" role="tablist"><button role="tab" id="tToday" aria-selected="${TAB==="today"}">Today · #${dayNum()}</button><button role="tab" id="tWeek" aria-selected="${TAB==="week"}">This week</button></div>
   <p class="muted" style="font-size:14px">${TAB==="today"?"Today's daily mission. Practice flights don't count.":"Week of "+dateLabel(ws)+", Monday to Sunday. Every daily mission adds up, so missing a day costs you."}</p>
   <div id="lbList">${boardHTML(TAB)}</div>
-  <div class="row2"><button class="sec" id="toFriends">Friends</button><button class="link" id="home" style="align-self:center">Back to mission control</button></div>`;
+  <div class="row2"><button class="sec" id="toFriends">Friends</button><button class="link" id="home" style="align-self:center">🌍 Return to Earth</button></div>`;
   shownPts=0;setAltitude(0);
   document.getElementById("tToday").onclick=()=>leaderboards("today");
   document.getElementById("tWeek").onclick=()=>leaderboards("week");
@@ -3735,7 +3739,7 @@ function friends(){
   <div><p class="label" style="margin-bottom:6px">Your crew</p><div id="friendList">${friendsHTML()}</div></div>
   <div><p class="label" style="margin-bottom:6px">Callsign</p><form id="csF" class="row2" autocomplete="off"><input id="callsign" aria-label="Callsign" maxlength="24" placeholder="Name shown on boards" value="${NET.me?esc(NET.me.callsign||""):""}"><button type="submit" style="flex:0 0 auto">Save</button></form></div>
   <p class="note" id="roNote" ${NET.canWrite?"hidden":""}>You can see the boards but can't save. Ask whoever shared Apogee with you to give you Contributor access.</p>
-  <div class="row2"><button class="sec" id="toLb">Leaderboards</button><button class="link" id="home" style="align-self:center">Back to mission control</button></div>`;
+  <div class="row2"><button class="sec" id="toLb">Leaderboards</button><button class="link" id="home" style="align-self:center">🌍 Return to Earth</button></div>`;
   shownPts=0;setAltitude(0);
   const msg=(t,bad)=>{const m=document.getElementById("fmsg");m.className=bad?"err":"ok";m.textContent=t;};
   document.getElementById("copyCode").onclick=e=>{const c=NET.me&&NET.me.code;if(!c)return;const b=e.currentTarget;
@@ -3779,7 +3783,7 @@ const FAQ=()=>[
 function faq(){CUR="faq";S=null;cancelAnimationFrame(timerRaf);
   panel.innerHTML=`${header("Flight manual")}<h2>How Apogee works</h2>
   <div class="faq">${FAQ().map(([q,a])=>`<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("")}</div>
-  <button class="link" id="home">Back to mission control</button>`;
+  <button class="link" id="home">🌍 Return to Earth</button>`;
   document.getElementById("home").onclick=intro;}
 /* ---------- Prompt submissions ---------- */
 const PRICE="£4.99";
@@ -3822,7 +3826,7 @@ function submit(){
   <div id="smsg" class="ok"></div>
   <div><p class="label" style="margin-bottom:6px">Your submissions</p><div id="mySubs">${mySubsHTML()}</div></div>
   ${NET.owner?`<div><p class="label" style="margin-bottom:6px">Review queue · only you see this</p><div id="queue" style="display:flex;flex-direction:column;gap:10px">${queueHTML()}</div></div>`:""}
-  <button class="link" id="home">Back to mission control</button>`;
+  <button class="link" id="home">🌍 Return to Earth</button>`;
   shownPts=0;setAltitude(0);
   const msg=(t,bad)=>{const m=document.getElementById("smsg");m.className=bad?"err":"ok";m.textContent=t;};
   document.getElementById("subF").onsubmit=async e=>{e.preventDefault();
@@ -3902,7 +3906,7 @@ function modeLabel(){if(!S)return "Mission #"+dayNum();
 const themeKey=id=>"apogee-"+dayNum()+"-"+id;
 
 function header(sub,ptsOv){const pts=ptsOv!=null?ptsOv:(S?S.total:0);
-  return `<div class="top"><h1 class="word">APOGEE<small>${esc(sub)}</small></h1><div class="alt"><b id="altv">${fmtKm(altitude(pts))}</b><span>Altitude</span><br>${soundBtn()}</div></div>`;}
+  return `<div class="top"><h1 class="word"><a href="#" class="homelink" aria-label="Apogee home">APOGEE</a><small>${esc(sub)}</small></h1><div class="alt"><b id="altv">${fmtKm(altitude(pts))}</b><span>Altitude</span><br>${soundBtn()}</div></div>`;}
 
 function intro(){
   CUR="intro";S=null;cancelAnimationFrame(timerRaf);
@@ -4072,9 +4076,9 @@ function results(){
   <p class="label" style="margin-bottom:-12px">Tap a prompt to see the rare answers</p>
   <div class="rows">${S.results.map((r,j)=>{const t=r.tier>=0?TIERS[r.tier]:null;return `<div class="row tap" data-j="${j}" role="button" tabindex="0" aria-expanded="false"><span class="p">${esc(r.q)} <span class="chev">▸</span></span><span class="a">${esc(r.answer)}</span><span class="s" style="color:${t?t.col:"var(--bad)"}">${t?(r.tc?"Too clever":t.name)+"<br>+"+t.pts:esc(r.why||"Miss")+"<br>+0"}</span><div class="reveal" hidden>${rareHTML(S.prompts[j])}</div></div>`}).join("")}</div>
   ${S.mode==="daily"?`<div><p class="label" style="margin-bottom:6px">Today with your crew</p><div id="mini">${boardHTML("today",5)}</div></div>`:""}
-  <div class="btns"><button class="go" id="copy">Copy result</button><div id="copyOut" hidden><textarea id="ct" readonly></textarea></div>
+  <div class="btns"><button class="go" id="copy">Copy result</button><button class="sec" id="earth">🌍 Return to Earth</button><div id="copyOut" hidden><textarea id="ct" readonly></textarea></div>
   <div class="duo"><button class="sec" id="lbBtn">Leaderboards</button><button class="sec" id="frBtn">Friends</button></div>
-  ${NET.owner?`<button class="sec" id="again">${S.mode==="new"?"Test more new prompts":"Practice flight"}</button>`:""}<button class="link" id="home">Back to mission control</button></div>
+  ${NET.owner?`<button class="sec" id="again">${S.mode==="new"?"Test more new prompts":"Practice flight"}</button>`:""}<button class="link" id="home">🌍 Return to Earth</button></div>
   ${S.mode!=="practice"&&S.mode!=="new"&&S.mode!=="preview"?`<p class="note">The next mission launches at ${reset} your time.</p>`:""}`;
   if(S.mode==="daily"&&isSupa()&&NET.ready){const st=S;Promise.resolve(st._save).then(()=>flightRank(st.total)).then(r=>{if(!r)return;st.rank=r;const el=document.getElementById("rank");if(el&&S===st)el.textContent=rankLong(r);});}
   setAltitude(S.total);
@@ -4084,6 +4088,7 @@ function results(){
   const ag=document.getElementById("again");if(ag)ag.onclick=()=>start(S.mode==="new"?"new":"practice");
   document.querySelectorAll(".row.tap").forEach(el=>{const tog=()=>{const rv=el.querySelector(".reveal");rv.hidden=!rv.hidden;el.setAttribute("aria-expanded",String(!rv.hidden));};
     el.onclick=tog;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();tog();}};});
+  document.getElementById("earth").onclick=intro;
   document.getElementById("home").onclick=intro;
   document.getElementById("lbBtn").onclick=()=>leaderboards();
   document.getElementById("frBtn").onclick=friends;
