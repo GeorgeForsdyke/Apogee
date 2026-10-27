@@ -225,25 +225,25 @@ button:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
 .mark span.two{font-size:8px;line-height:1.15;letter-spacing:0}
 .homelink{color:inherit;text-decoration:none;cursor:pointer}.homelink:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
 /* ===== In-game keyboard, modelled on the iPhone keyboard: no dead gaps between keys, a pop-up letter, type on release ===== */
-#kb{position:fixed;left:0;right:0;bottom:0;z-index:4;background:#2b2b2d;
+#kb{position:fixed;left:0;right:0;bottom:0;z-index:4;background:#070b18;border-top:1px dashed var(--line);
   padding:6px env(safe-area-inset-right,0px) calc(4px + env(safe-area-inset-bottom,0px)) env(safe-area-inset-left,0px);
   touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif}
+  font-family:var(--mono)}
 #kb[hidden]{display:none}
 #kb .kr{display:flex;justify-content:center}
 #kb .k{flex:1 1 0;min-width:0;height:64px;padding:6px 3px;box-sizing:border-box;display:flex}
-#kb .k>span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#6b6b6e;color:#fff;
-  font-size:27px;font-weight:400;line-height:1;box-shadow:0 1px 0 rgba(0,0,0,.45)}
-#kb .k.fn>span{background:#464649;font-size:19px}
+#kb .k>span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:7px;background:#1b2343;color:var(--ink);border:1px solid rgba(232,236,248,.14);
+  font-size:25px;font-weight:700;line-height:1;box-shadow:0 2px 0 #030510}
+#kb .k.fn>span{background:#10162d;color:var(--muted);font-size:19px}
 #kb .k.half{flex:.5 1 0}
 #kb .k.fn15{flex:1.35 1 0}
-#kb .k.space{flex:5 1 0}#kb .k.space>span{font-size:19px}
-#kb .k.goK{flex:2.1 1 0}#kb .k.goK>span{background:#0a84ff;font-size:19px;font-weight:500}
-#kb .k.on>span{background:#a1a1a6}
-#kb .k.fn.on>span{background:#6b6b6e}
-#kb .k.goK.on>span{background:#409cff}
-#kbPop{position:fixed;z-index:5;pointer-events:none;background:#6b6b6e;color:#fff;border-radius:9px 9px 6px 6px;display:flex;align-items:flex-start;justify-content:center;
-  font:400 40px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;padding-top:8px;box-shadow:0 2px 6px rgba(0,0,0,.45)}
+#kb .k.space{flex:5 1 0}#kb .k.space>span{font-size:16px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+#kb .k.goK{flex:2.1 1 0}#kb .k.goK>span{background:var(--flame);color:#1d1203;border-color:transparent;font-size:19px;font-weight:800;box-shadow:0 2px 0 #8a5a14,0 0 18px rgba(255,181,71,.25)}
+#kb .k.on>span{background:#33407a;border-color:var(--flame)}
+#kb .k.fn.on>span{background:#1b2343;color:var(--ink)}
+#kb .k.goK.on>span{background:#ffc871}
+#kbPop{position:fixed;z-index:5;pointer-events:none;background:#1b2343;color:var(--flame);border:1.5px solid var(--flame);border-radius:9px 9px 6px 6px;display:flex;align-items:flex-start;justify-content:center;
+  font:800 38px/1 var(--mono);padding-top:8px;box-shadow:0 4px 14px rgba(0,0,0,.6),0 0 16px rgba(255,181,71,.2)}
 #kbPop[hidden]{display:none}
 body.kbon .app{padding-bottom:calc(290px + env(safe-area-inset-bottom,0px))}
 @media (max-width:380px){#kb .k{height:58px;padding:5px 2.5px}#kb .k>span{font-size:25px}}
@@ -2911,6 +2911,11 @@ P("gen","Something you can lose",
   add("Something you'd find at the seaside",1,"Rocks|Stones|Water|Waves|Tide|Sun|Wind|Seagulls|Gulls|People|Families|Dogs|Towels|Suncream|Umbrellas|Parasols|Sunbathers|Swimmers|Surfboards|Boats|Fishing boats|Ice cream van|Kiosk|Café|Toilets|Car park|Benches|Litter|Bins|Footprints|Sandcastles|Moats|Kites|Buckets|Spades|Crabs|Shells|Fish|Jellyfish|Starfish|Seals");
 })();
 
+/* user-reported misses, 27 Oct: adult answers count where they genuinely fit */
+(()=>{const add=(q,t,str)=>{const b=BANK.find(x=>x.q===q);if(b)b.t[t]=(b.t[t]?b.t[t]+"|":"")+str;};
+  add("Something you'd find in a bedroom",1,"Condoms/Condom|Lingerie|Underwear/Pants/Knickers/Boxers|Pyjamas/PJs/Pajamas|Dressing gown/Robe");
+  add("Something you'd find in a bedroom",2,"Vibrator|Sex toy/Sex toys|Lube/Lubricant|Handcuffs/Fluffy handcuffs|Massage oil|Dildo|Rabbit/Rabbit vibrator|Whip|Blindfold|Pregnancy test|Bedside drawer/Bedside drawers");
+})();
 /* user-reported misses, 24 Oct */
 (()=>{const b=BANK.find(x=>x.q==="Something that floats");if(b)b.t[1]+="|Poo/Poop/Turd/Floater/Faeces/Feces/Number two";})();
 /* user-reported misses, 16 Oct */
