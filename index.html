@@ -231,22 +231,22 @@ button:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif}
 #kb[hidden]{display:none}
 #kb .kr{display:flex;justify-content:center}
-#kb .k{flex:1 1 0;min-width:0;height:54px;padding:6px 3px;box-sizing:border-box;display:flex}
+#kb .k{flex:1 1 0;min-width:0;height:64px;padding:6px 3px;box-sizing:border-box;display:flex}
 #kb .k>span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#6b6b6e;color:#fff;
-  font-size:24px;font-weight:400;line-height:1;box-shadow:0 1px 0 rgba(0,0,0,.45)}
-#kb .k.fn>span{background:#464649;font-size:17px}
+  font-size:27px;font-weight:400;line-height:1;box-shadow:0 1px 0 rgba(0,0,0,.45)}
+#kb .k.fn>span{background:#464649;font-size:19px}
 #kb .k.half{flex:.5 1 0}
 #kb .k.fn15{flex:1.35 1 0}
-#kb .k.space{flex:5 1 0}#kb .k.space>span{font-size:17px}
-#kb .k.goK{flex:2.1 1 0}#kb .k.goK>span{background:#0a84ff;font-size:17px;font-weight:500}
+#kb .k.space{flex:5 1 0}#kb .k.space>span{font-size:19px}
+#kb .k.goK{flex:2.1 1 0}#kb .k.goK>span{background:#0a84ff;font-size:19px;font-weight:500}
 #kb .k.on>span{background:#a1a1a6}
 #kb .k.fn.on>span{background:#6b6b6e}
 #kb .k.goK.on>span{background:#409cff}
 #kbPop{position:fixed;z-index:5;pointer-events:none;background:#6b6b6e;color:#fff;border-radius:9px 9px 6px 6px;display:flex;align-items:flex-start;justify-content:center;
-  font:400 36px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;padding-top:8px;box-shadow:0 2px 6px rgba(0,0,0,.45)}
+  font:400 40px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;padding-top:8px;box-shadow:0 2px 6px rgba(0,0,0,.45)}
 #kbPop[hidden]{display:none}
-body.kbon .app{padding-bottom:calc(250px + env(safe-area-inset-bottom,0px))}
-@media (max-width:380px){#kb .k{height:50px;padding:5px 2.5px}#kb .k>span{font-size:22px}}
+body.kbon .app{padding-bottom:calc(290px + env(safe-area-inset-bottom,0px))}
+@media (max-width:380px){#kb .k{height:58px;padding:5px 2.5px}#kb .k>span{font-size:25px}}
 @media (max-width:380px){.app{grid-template-columns:62px minmax(0,1fr)}.mark span{font-size:8.5px}.panel{padding:16px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -3941,7 +3941,7 @@ function kbBuild(){
   const mark=k=>{el.querySelectorAll(".k.on").forEach(x=>{if(!Object.values(touches).includes(x))x.classList.remove("on");});if(k)k.classList.add("on");};
   const popFor=k=>{if(!k||k.classList.contains("fn")||k.classList.contains("space")||k.classList.contains("goK")){pop.hidden=true;return;}
     const r=k.firstElementChild.getBoundingClientRect();pop.textContent=k.firstElementChild.textContent;
-    pop.style.left=(r.left-8)+"px";pop.style.width=(r.width+16)+"px";pop.style.top=(r.top-58)+"px";pop.style.height=(r.height+52)+"px";pop.hidden=false;};
+    pop.style.left=(r.left-8)+"px";pop.style.width=(r.width+16)+"px";pop.style.top=(r.top-64)+"px";pop.style.height=(r.height+58)+"px";pop.hidden=false;};
   const stopRep=()=>{clearTimeout(hold);clearInterval(rep);hold=rep=0;};
   el.addEventListener("pointerdown",e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId);}catch(_){}
     const k=keyAt(e.clientX,e.clientY);touches[e.pointerId]=k;mark(k);popFor(k);
