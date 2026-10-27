@@ -226,19 +226,21 @@ button:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
 .homelink{color:inherit;text-decoration:none;cursor:pointer}.homelink:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
 /* ===== In-game keyboard (phones and tablets): replaces the system keyboard during a prompt ===== */
 #kb{position:fixed;left:0;right:0;bottom:0;z-index:4;background:#0a0f1f;border-top:1px solid var(--line);
-  padding:8px max(6px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));
-  display:flex;flex-direction:column;gap:7px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+  padding:8px max(3px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(3px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:8px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 #kb[hidden]{display:none}
-#kb .kr{display:flex;gap:5px;justify-content:center}
-#kb button{flex:1 1 0;max-width:44px;height:46px;padding:0;border-radius:7px;border:none;background:#1e2745;color:var(--ink);
-  font-family:var(--mono);font-size:19px;font-weight:700;text-transform:uppercase;text-align:center;touch-action:manipulation}
+#kb .kr{display:flex;gap:4px;justify-content:center}
+#kb .kr.mid{padding:0 4.5%}
+#kb button{flex:1 1 0;min-width:0;height:56px;padding:0;border-radius:7px;border:none;background:#1e2745;color:var(--ink);
+  font-family:var(--mono);font-size:22px;font-weight:700;text-transform:uppercase;text-align:center;touch-action:manipulation}
 #kb button::before,#kb button::after{content:none}
 #kb button:active,#kb button.dn{background:#3a4a7a;transform:translateY(1px)}
-#kb button.wide{flex:1.6 1 0;max-width:70px;font-size:14px}
+#kb button.wide{flex:1.5 1 0;font-size:15px}
+#kb button[data-k="del"]{font-size:26px}
 #kb button.space{flex:5 1 0;max-width:none;font-size:13px;color:var(--muted)}
-#kb button.go{flex:1.8 1 0;max-width:84px;background:var(--flame);color:#1d1203;font-size:16px;box-shadow:none}
-body.kbon .app{padding-bottom:calc(240px + env(safe-area-inset-bottom,0px))}
-@media (max-width:380px){#kb button{height:42px;font-size:17px}#kb .kr{gap:4px}}
+#kb button.go{flex:1.6 1 0;background:var(--flame);color:#1d1203;font-size:16px;box-shadow:none}
+body.kbon .app{padding-bottom:calc(280px + env(safe-area-inset-bottom,0px))}
+@media (max-width:380px){#kb button{height:50px;font-size:19px}#kb .kr{gap:3px}}
 @media (max-width:380px){.app{grid-template-columns:62px minmax(0,1fr)}.mark span{font-size:8.5px}.panel{padding:16px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -3927,14 +3929,19 @@ function kbBuild(){
   if(KB.el)return KB.el;
   const el=document.createElement("div");el.id="kb";el.hidden=true;el.setAttribute("aria-label","Keyboard");
   document.body.appendChild(el);KB.el=el;kbDraw();
-  const press=e=>{const b=e.target.closest("button");if(!b)return;e.preventDefault();b.classList.add("dn");setTimeout(()=>b.classList.remove("dn"),90);kbKey(b.dataset.k);};
+  let hold=0,rep=0;const stop=()=>{clearTimeout(hold);clearInterval(rep);hold=rep=0;el.querySelectorAll(".dn").forEach(x=>x.classList.remove("dn"));};
+  const press=e=>{const b=e.target.closest("button");if(!b)return;e.preventDefault();stop();b.classList.add("dn");kbKey(b.dataset.k);
+    if(b.dataset.k==="del")hold=setTimeout(()=>{rep=setInterval(()=>{if(!KB.inp||!KB.inp.value)return stop();kbKey("del");},65);},380);
+    else setTimeout(()=>b.classList.remove("dn"),90);};
   el.addEventListener("pointerdown",press);
+  ["pointerup","pointercancel","pointerleave"].forEach(t=>el.addEventListener(t,stop));
+  el.addEventListener("contextmenu",e=>e.preventDefault());
   return el;
 }
 function kbDraw(){
   const rows=KB.num?["1234567890","-'&.,!?"]:["qwertyuiop","asdfghjkl","zxcvbnm"];
   const key=k=>`<button type="button" data-k="${k}" aria-label="${k}">${esc(k)}</button>`;
-  let h=rows.map((r,i)=>`<div class="kr">${i===rows.length-1&&!KB.num?`<button type="button" class="wide" data-k="num" aria-label="Numbers">123</button>`:""}${[...r].map(key).join("")}${i===rows.length-1?`<button type="button" class="wide" data-k="del" aria-label="Delete">⌫</button>`:""}</div>`).join("");
+  let h=rows.map((r,i)=>`<div class="kr${!KB.num&&i===1?" mid":""}">${i===rows.length-1&&!KB.num?`<button type="button" class="wide" data-k="num" aria-label="Numbers">123</button>`:""}${[...r].map(key).join("")}${i===rows.length-1?`<button type="button" class="wide" data-k="del" aria-label="Delete">⌫</button>`:""}</div>`).join("");
   h+=`<div class="kr">${KB.num?`<button type="button" class="wide" data-k="num" aria-label="Letters">ABC</button>`:""}<button type="button" class="space" data-k=" " aria-label="Space">space</button><button type="button" class="go" data-k="go" aria-label="Go">Go</button></div>`;
   KB.el.innerHTML=h;
 }
