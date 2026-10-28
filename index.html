@@ -226,27 +226,28 @@ button:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
 .homelink{color:inherit;text-decoration:none;cursor:pointer}.homelink:focus-visible{outline:2px solid var(--t2);outline-offset:3px}
 /* ===== In-game keyboard, modelled on the iPhone keyboard: no dead gaps between keys, a pop-up letter, type on release ===== */
 #kb{position:fixed;left:0;right:0;bottom:0;z-index:4;background:#070b18;border-top:1px dashed var(--line);
-  padding:6px env(safe-area-inset-right,0px) calc(4px + env(safe-area-inset-bottom,0px)) env(safe-area-inset-left,0px);
+  padding:5px env(safe-area-inset-right,0px) calc(4px + env(safe-area-inset-bottom,0px)) env(safe-area-inset-left,0px);
   touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
   font-family:var(--mono)}
 #kb[hidden]{display:none}
 #kb .kr{display:flex;justify-content:center}
-#kb .k{flex:1 1 0;min-width:0;height:64px;padding:6px 3px;box-sizing:border-box;display:flex}
-#kb .k>span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:7px;background:#1b2343;color:var(--ink);border:1px solid rgba(232,236,248,.14);
-  font-size:25px;font-weight:700;line-height:1;box-shadow:0 2px 0 #030510}
-#kb .k.fn>span{background:#10162d;color:var(--muted);font-size:19px}
+#kb .k{flex:1 1 0;min-width:0;height:var(--krow,54px);padding:6px 3px;box-sizing:border-box;display:flex}
+#kb .k>span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:5px;background:#1b2343;color:var(--ink);border:1px solid rgba(232,236,248,.14);
+  font-size:var(--kfont,23px);font-weight:700;line-height:1;box-shadow:0 1px 0 #030510}
+#kb .k.fn>span{background:#10162d;color:var(--muted);font-size:17px}
 #kb .k.half{flex:.5 1 0}
 #kb .k.fn15{flex:1.35 1 0}
-#kb .k.space{flex:5 1 0}#kb .k.space>span{font-size:16px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
-#kb .k.goK{flex:2.1 1 0}#kb .k.goK>span{background:var(--flame);color:#1d1203;border-color:transparent;font-size:19px;font-weight:800;box-shadow:0 2px 0 #8a5a14,0 0 18px rgba(255,181,71,.25)}
+#kb .k.n123{flex:2.55 1 0}
+#kb .k.space{flex:5.15 1 0}#kb .k.space>span{font-size:15px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+#kb .k.goK{flex:2.3 1 0}#kb .k.goK>span{background:var(--flame);color:#1d1203;border-color:transparent;font-size:17px;font-weight:800;box-shadow:0 1px 0 #8a5a14,0 0 18px rgba(255,181,71,.25)}
 #kb .k.on>span{background:#33407a;border-color:var(--flame)}
 #kb .k.fn.on>span{background:#1b2343;color:var(--ink)}
 #kb .k.goK.on>span{background:#ffc871}
 #kbPop{position:fixed;z-index:5;pointer-events:none;background:#1b2343;color:var(--flame);border:1.5px solid var(--flame);border-radius:9px 9px 6px 6px;display:flex;align-items:flex-start;justify-content:center;
   font:800 38px/1 var(--mono);padding-top:8px;box-shadow:0 4px 14px rgba(0,0,0,.6),0 0 16px rgba(255,181,71,.2)}
 #kbPop[hidden]{display:none}
-body.kbon .app{padding-bottom:calc(290px + env(safe-area-inset-bottom,0px))}
-@media (max-width:380px){#kb .k{height:58px;padding:5px 2.5px}#kb .k>span{font-size:25px}}
+body.kbon .app{padding-bottom:calc(var(--kbh,240px) + env(safe-area-inset-bottom,0px))}
+
 @media (max-width:380px){.app{grid-template-columns:62px minmax(0,1fr)}.mark span{font-size:8.5px}.panel{padding:16px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -3972,7 +3973,7 @@ function kbDraw(){
     [..."1234567890"].map(c=>key(c)).join(""),
     [..."-/:;()£&@\""].map(c=>key(c)).join(""),
     `<div class="k fn15"></div>`+[...".,?!'"].map(c=>`<div class="k" style="flex:1.4 1 0" data-k="${esc(c)}" role="button" aria-label="${esc(c)}"><span>${esc(c)}</span></div>`).join("")+key("del","fn fn15","⌫")];
-  rows.push(key("num","fn fn15",KB.num?"ABC":"123")+key(" ","space","space")+key("go","goK","go"));
+  rows.push(key("num","fn n123",KB.num?"ABC":"123")+key(" ","space","space")+key("go","goK","go"));
   KB.el.innerHTML=rows.map(r=>`<div class="kr">${r}</div>`).join("");
 }
 function kbKey(k){
@@ -3987,10 +3988,13 @@ function kbKey(k){
   /* like iOS: capital at the start, lower case after */
   const want=!v.length;if(KB.shift!==want&&k!=="shift"){KB.shift=want;kbDraw();}
 }
+function kbSize(){const w=Math.min(innerWidth,screen.width||innerWidth),big=w>=414,r=document.documentElement.style;
+  r.setProperty("--krow",(big?57:54)+"px");r.setProperty("--kfont",(big?25:23)+"px");r.setProperty("--kbh",(4*(big?57:54)+20)+"px");}
+addEventListener("resize",()=>{if(KB.el&&!KB.el.hidden)kbSize();});
 function showKB(inp){
   if(!TOUCH){return;}
   const el=kbBuild();
-  if(inp){KB.inp=inp;inp.readOnly=true;inp.setAttribute("inputmode","none");KB.num=false;KB.shift=true;kbDraw();el.hidden=false;document.body.classList.add("kbon");
+  if(inp){kbSize();KB.inp=inp;inp.readOnly=true;inp.setAttribute("inputmode","none");KB.num=false;KB.shift=true;kbDraw();el.hidden=false;document.body.classList.add("kbon");
     setTimeout(()=>{const q=document.querySelector(".q");if(q)q.scrollIntoView({block:"start",behavior:"smooth"});},60);}
   else{KB.inp=null;el.hidden=true;document.body.classList.remove("kbon");}
 }
