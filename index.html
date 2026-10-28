@@ -4155,7 +4155,8 @@ function feedback(pi,res){
 }
 
 function shareText(){const a=passed(S.total),L=S.mode==="daily"?logbook():null;
-  return `Apogee · ${modeLabel()} · ${S.total}\n${S.results.map(r=>r.tier>=0?SHARE_EMOJI[r.tier]:"💥").join("")}\n${fmtKm(altitude(S.total))} · ${SHARE_DEST[a.label]||a.label}${rankShort(S.rank)?" · "+rankShort(S.rank):""}${L&&L.streak>1?"\n🔥 "+L.streak+"-day streak":""}`;}
+  const head=S.mode==="daily"?`Apogee #${S.day} 🚀`:`Apogee · ${modeLabel()} 🚀`;
+  return `${head}\n${S.total}\n\n${S.results.map(r=>r.tier>=0?SHARE_EMOJI[r.tier]:"💥").join("")}\n${fmtKm(altitude(S.total))} · ${SHARE_DEST[a.label]||a.label}${rankShort(S.rank)?" · "+rankShort(S.rank):""}${L&&L.streak>1?"\n🔥 "+L.streak+"-day streak":""}`;}
 
 function results(){
   CUR="results";cancelAnimationFrame(timerRaf);
